@@ -53,6 +53,14 @@ public class MainGameScreen extends GameScreen {
         batch.end();
     }
 
+    @Override
+    public void dispose() {
+        drawable.dispose();
+        outline.dispose();
+        color.dispose();
+        batch.dispose();
+    }
+    
     /**
      * Nested (static) class to provide a nice abstraction over Pixmap, exposing
      * only the draw calls we want and handling some of the logic for smoothed
