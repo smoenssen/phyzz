@@ -3,36 +3,71 @@ package com.smoftware.phyzz.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Pixmap.Blending;
+import com.badlogic.gdx.graphics.Pixmap.Format;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Disposable;
 
 public class MainGameScreen extends GameScreen {
 
     private SpriteBatch batch;
+    private ShaderProgram shader;
     private DrawablePixmap drawable;
     private Texture outline, color;
+    private FileHandle vertexShader, fragmentShader;
 
     public MainGameScreen() {
-        batch = new SpriteBatch();
+        /* Some regular textures to draw on the scene. */
+        outline = new Texture("smiley-outline.png");
+        color = new Texture("smiley-color.png");
 
-        outline = new Texture("black_rectangle.png");
-        color = new Texture("black_rectangle_opacity33.png");
+        /* I like to keep my shader programs as text files in the assets
+         * directory rather than dealing with horrid Java string formatting. */
+        vertexShader = Gdx.files.internal("vertex.glsl");
+        fragmentShader = Gdx.files.internal("fragment.glsl");
+
+        /* Bonus: you can set `pedantic = false` while tinkering with your
+         * shaders. This will stop it from crashing if you have unused variables
+         * and so on. */
+        // ShaderProgram.pedantic = false;
+
+        /* Construct our shader program. Spit out a log and quit if the shaders
+         * fail to compile. */
+        shader = new ShaderProgram(vertexShader, fragmentShader);
+        if (!shader.isCompiled()) {
+            Gdx.app.log("Shader", shader.getLog());
+            Gdx.app.exit();
+        }
+
+        /* Construct a simple SpriteBatch using our shader program. */
+        batch = new SpriteBatch();
+        batch.setShader(shader);
+
+        /* Tell our shader that u_texture will be in the TEXTURE0 spot and
+         * u_mask will be in the TEXTURE1 spot. We can set these now since
+         * they'll never change; we don't have to send them every render frame. */
+        shader.begin();
+        shader.setUniformi("u_texture", 0);
+        shader.setUniformi("u_mask", 1);
+        shader.end();
 
         /* Pixmap blending can result result in some funky looking lines when
          * drawing. You may need to disable it. */
-        //Pixmap.setBlending(Pixmap.Blending.None);
+        //Pixmap.setBlending(Blending.None);
 
         /* Construct our DrawablePixmap (custom class, defined below) with a
          * Pixmap that is the dimensions of our screen. Alpha format is chosen
          * because we are just using it as a mask and don't care about RGB color
          * information. This will require less memory. */
         drawable = new DrawablePixmap(new Pixmap(Gdx.graphics.getWidth(),
-                Gdx.graphics.getHeight(), Pixmap.Format.Alpha), 1);
+                Gdx.graphics.getHeight(), Format.Alpha), 1);
 
         Gdx.input.setInputProcessor(new DrawingInput());
     }
@@ -49,7 +84,7 @@ public class MainGameScreen extends GameScreen {
          * this technique supports multiple images in a batch. */
         batch.begin();
         batch.draw(color, 0, 0);
-        batch.draw(outline, 0, 0);
+        //batch.draw(outline, 0, 0);
         batch.end();
     }
 
@@ -60,7 +95,7 @@ public class MainGameScreen extends GameScreen {
         color.dispose();
         batch.dispose();
     }
-    
+
     /**
      * Nested (static) class to provide a nice abstraction over Pixmap, exposing
      * only the draw calls we want and handling some of the logic for smoothed
